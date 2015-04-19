@@ -1,0 +1,111 @@
+@(name: String)
+<!DOCTYPE html>
+
+<meta charset="utf-8" />
+
+<title>Game</title>
+<head>
+<style>
+.square {
+	background:#00F;
+	width:40px;
+	height:40px;
+	position:absolute;
+}
+</style>
+<script language="javascript" type="text/javascript">
+
+  var wsUri = "ws://localhost:9000/ws";
+  var output;
+  var moves = [];
+
+  function init()
+  {
+    websocket = new WebSocket(wsUri);
+    websocket.onopen = function(evt) { };
+    websocket.onclose = function(evt) { alert('disconnected'); };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+	window.setInterval(updatePosition, 10);
+  }
+
+  function onMessage(evt) {
+	data = JSON.parse(evt.data);
+	handle(data.action, data.id, data.params);
+  }
+
+  function onError(evt) {
+    alert('error ' + evt);
+  }
+
+  function send(message) {
+    websocket.send(JSON.stringify(message));
+  }
+
+  function command(action, params) {
+    send({"action": action, "params": params});
+  }
+  
+  function handle(action, id, params) {
+	  switch(action) {
+		case "move":
+		moves.push({id: id, x: params.x, y: params.y});
+		break;
+		case "connected":
+		para = document.createElement("div")
+		para.id = params.id;
+		para.className = "square";
+		para.style.left = params.x+"px";
+		para.style.top = params.y+"px";
+		document.getElementById("scene").appendChild(para);
+		break;
+		case "initialize":
+		con = params.connections;
+		for (i = 0; i < con.length; i++) {
+			para = document.createElement("div")
+			para.id = con[i].id;
+			para.className = "square";
+			para.style.left = con[i].x+"px";
+			para.style.top = con[i].y+"px";
+			document.getElementById("scene").appendChild(para);
+		}
+		break;
+		case "disconnected":
+		document.getElementById("scene").removeChild(document.getElementById(params.id));
+	  }
+  };
+
+  window.onclick=function(event){
+    command("move", {"x": event.clientX, "y": event.clientY});
+  };
+  
+  function updatePosition() {
+	  nextArr = [];
+	  for (i = 0; i < moves.length; i++) {
+		  node = document.getElementById(moves[i].id);
+		  currX = parseInt(node.style.left);
+		  currY = parseInt(node.style.top);
+		  console.log(currX, currY);
+		  if (currX < moves[i].x)
+		     currX ++;
+		  else if (currX > moves[i].x)
+		     currX --;
+		  if (currY < moves[i].y)
+		     currY ++;
+		  else if (currY > moves[i].y)
+		     currY --;
+		  node.style.left = currX+"px";
+		  node.style.top = currY+"px";
+		  if (currX != moves[i].x || currY != moves[i].y)
+		     nextArr.push(moves[i]);
+	  }
+	  moves = nextArr;
+  }
+
+  window.addEventListener("load", init, false);
+
+</script>
+</head>
+<body>
+<div id="scene">
+</div>
+</body>
