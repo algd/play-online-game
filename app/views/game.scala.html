@@ -6,18 +6,36 @@
 <title>Game</title>
 <head>
 <style>
+body {
+    background: url('/assets/images/grass.png');
+}
+#textbox1 {
+    position: fixed;
+    right: 5px;
+}
 .square {
-	background:#00F;
-	width:40px;
-	height:40px;
+	background: url('/assets/images/char.png');
+	width:32px;
+	height:48px;
 	position:absolute;
+}
+.chatbox {
+    background: rgba(0,0,0,0.5);
+    color: #FFFFFF;
+    position:absolute;
+    padding: 2px;
+
 }
 </style>
 <script language="javascript" type="text/javascript">
 
-  var wsUri = "ws://localhost:9000/ws";
+ var ref = window.location.href.substr(7);
+  var wsUri = "ws://"+ref.substr(0, ref.indexOf('/'))+"/ws";
   var output;
   var moves = [];
+  var myId = 0;
+  var canMove = true;
+  var nick = "@name";
 
   function init()
   {
@@ -26,6 +44,16 @@
     websocket.onclose = function(evt) { alert('disconnected'); };
     websocket.onmessage = function(evt) { onMessage(evt) };
 	window.setInterval(updatePosition, 10);
+
+      document.getElementById("textbox1").onkeypress = function(e){
+       if (!e) e = window.event;
+        var keyCode = e.keyCode || e.which;
+        if (keyCode == '13'){
+          command("say", {"msg": nick+": "+this.value});
+          this.value = "";
+          return false;
+        }
+      };
   }
 
   function onMessage(evt) {
@@ -48,10 +76,10 @@
   function handle(action, id, params) {
 	  switch(action) {
 		case "move":
-		moves.push({id: id, x: params.x, y: params.y});
+		moves.push({id: id, x: params.x, y: params.y, frame: 0});
 		break;
 		case "connected":
-		para = document.createElement("div")
+		para = document.createElement("div");
 		para.id = params.id;
 		para.className = "square";
 		para.style.left = params.x+"px";
@@ -70,21 +98,55 @@
 		}
 		break;
 		case "disconnected":
-		document.getElementById("scene").removeChild(document.getElementById(params.id));
+            document.getElementById("scene").removeChild(document.getElementById(params.id));
+		break;
+		case "hi":
+            myId = id;
+            break;
+        case "say":
+            para = document.createElement("div");
+            para.id = id+"chat";
+            para.className = "chatbox";
+            para.style.left = document.getElementById(id).style.left;
+            para.style.top = (parseInt(document.getElementById(id).style.top)-20)+"px";
+            document.getElementById("scene").appendChild(para);
+            para.innerHTML = params.msg;
+            interval = setInterval(function(){
+                document.getElementById(id+"chat").style.left = document.getElementById(id).style.left;
+                document.getElementById(id+"chat").style.top = (parseInt(document.getElementById(id).style.top)-20)+"px";
+            }, 10);
+            setTimeout(function(){
+                clearInterval(interval);
+                document.getElementById("scene").removeChild(document.getElementById(id+"chat"));
+            },5000);
 	  }
   };
 
   window.onclick=function(event){
-    command("move", {"x": event.clientX, "y": event.clientY});
+      if (canMove) {
+        command("move", {"x": event.clientX-16, "y": event.clientY-45});
+        canMove = false;
+      }
   };
   
   function updatePosition() {
 	  nextArr = [];
+	  document.getElementById("textbox1").focus();
 	  for (i = 0; i < moves.length; i++) {
 		  node = document.getElementById(moves[i].id);
 		  currX = parseInt(node.style.left);
 		  currY = parseInt(node.style.top);
-		  console.log(currX, currY);
+		  console.log(moves[i].frame);
+		  var dir = 0;
+		  if (currX < moves[i].x)
+		     dir = 1;
+          else if (currX > moves[i].x)
+             dir = 2;
+          else if (currY > moves[i].y)
+             dir = 3;
+             //background-position: -100px 0;
+          node.style.backgroundPosition = "-"+(Math.floor(moves[i].frame/10)%4*32)+"px -"+(dir*48)+"px";
+
 		  if (currX < moves[i].x)
 		     currX ++;
 		  else if (currX > moves[i].x)
@@ -95,17 +157,26 @@
 		     currY --;
 		  node.style.left = currX+"px";
 		  node.style.top = currY+"px";
-		  if (currX != moves[i].x || currY != moves[i].y)
+		  if (currX != moves[i].x || currY != moves[i].y) {
+		     moves[i].frame++;
 		     nextArr.push(moves[i]);
+          }
+          else if (moves[i].id == myId) {
+             canMove = true;
+             node.style.backgroundPosition = "0px -"+(dir*48)+"px";
+          }
 	  }
 	  moves = nextArr;
   }
 
   window.addEventListener("load", init, false);
 
+
+
 </script>
 </head>
 <body>
 <div id="scene">
 </div>
+<input id="textbox1" type="text" name="fname"/>
 </body>

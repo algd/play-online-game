@@ -52,6 +52,7 @@ case class PlayerStatus(actor: ActorRef, x: Int = 0, y: Int = 0)
 case class Command(action: String, params: Option[Parameters], id: Option[Int] = None)
 trait Parameters
 case class Move(x: Int, y: Int) extends Parameters
+case class Hi(id: Int) extends Parameters
 case class Say(msg: String) extends Parameters
 case class Connected(id: Int, x: Int, y: Int) extends Parameters
 case class Disconnected(id: Int) extends Parameters
@@ -65,11 +66,13 @@ class PlayerActor(out: ActorRef, registry: ActorRef) extends Actor {
   implicit val connectedFormat =  Json.format[Connected]
   implicit val initializeFormat =  Json.format[Initialize]
   implicit val disconectedFormat =  Json.format[Disconnected]
+  implicit val sayFormat =  Json.format[Say]
   implicit val commandFormat = new Format[Command]{
     def reads(json : JsValue) = {
       val (action, params) = ((json \ "action").as[String], json \ "params")
       JsSuccess(Command(action, action match {
         case "move" => params.asOpt[Move]
+        case "say" => params.asOpt[Say]
       }))
     }
     def writes(c: Command) = c match {
@@ -89,6 +92,13 @@ class PlayerActor(out: ActorRef, registry: ActorRef) extends Actor {
         JsObject(Seq("action" -> JsString("disconnected"),
           "id" -> JsNumber(id),
           "params" -> Json.toJson(params)))
+      case Command(_, Some(params: Say), Some(id)) =>
+        JsObject(Seq("action" -> JsString("say"),
+          "id" -> JsNumber(id),
+           "params" -> Json.toJson(params)))
+      case Command(other, None, Some(id)) =>
+        JsObject(Seq("action" -> JsString(other),
+          "id"-> JsNumber(id)))
       case _ => null
     }
   }
@@ -96,6 +106,7 @@ class PlayerActor(out: ActorRef, registry: ActorRef) extends Actor {
   override def preStart() = {
     super.preStart()
     registry ! Register(id)
+    self ! Command("hi", None, Some(id))
   }
 
   override def postStop() = {
