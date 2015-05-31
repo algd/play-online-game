@@ -22,4 +22,9 @@ object Application extends Controller {
     PlayerActor.props(out, registry)
   }
 
+  def spawn = Action {
+    Akka.system.actorOf(Props(new NPCActor(registry)))
+    Ok("Ok")
+  }
+
 }

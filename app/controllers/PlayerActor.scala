@@ -58,6 +58,43 @@ case class Connected(id: Int, x: Int, y: Int) extends Parameters
 case class Disconnected(id: Int) extends Parameters
 case class Initialize(connections: Seq[Connected]) extends Parameters
 
+class NPCActor(registry: ActorRef) extends Actor {
+  import RegistryActor._
+
+  val id = scala.util.Random.nextInt(1000)
+  var tick: Cancellable = _
+
+  import context._
+
+  override def preStart() = {
+    super.preStart()
+    registry ! Register(id)
+    import scala.concurrent.duration._
+    tick = context.system.scheduler.schedule(3.seconds, 5.seconds, self, Tick)
+  }
+
+  override def postStop() = {
+    super.postStop()
+    tick.cancel()
+    registry ! Disconnect(id)
+  }
+
+  case object Tick
+
+  def receive = {
+    case Command(_, Some(Say(msg)), Some(msgId)) =>
+      if (id != msgId && msg.contains("hola"))
+        Future {
+          Thread.sleep(1000)
+          registry ! Command("", Some(Say("Bot: hola "+msg.split(":").head+"!")), Some(id))
+        }
+
+    case Tick =>
+        registry ! Command("", Some(Move(scala.util.Random.nextInt(300), scala.util.Random.nextInt(300))), Some(id))
+
+  }
+}
+
 class PlayerActor(out: ActorRef, registry: ActorRef) extends Actor {
   import RegistryActor._
 

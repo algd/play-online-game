@@ -1,17 +1,29 @@
 @(name: String)
 <!DOCTYPE html>
-
-<meta charset="utf-8" />
+<html>
 
 <title>Game</title>
 <head>
 <style>
-body {
-    background: url('/assets/images/grass.png');
+#textbox1 {    
+	width:100%;
 }
-#textbox1 {
-    position: fixed;
-    right: 5px;
+#history {
+    
+	background: rgba(0,0,0,0.5);
+    color: #FFFFFF;
+	width:100%;
+	height:80px;
+	overflow:auto;
+}
+#chat {
+	position: fixed;
+	bottom:5px;
+	width:50%;
+}
+#scene {
+	background: url('/assets/images/grass.png');
+	height: 100%;
 }
 .square {
 	background: url('/assets/images/char.png');
@@ -24,18 +36,132 @@ body {
     color: #FFFFFF;
     position:absolute;
     padding: 2px;
-
+   -moz-user-select: none;
+   -khtml-user-select: none;
+   -webkit-user-select: none;
+   -ms-user-select: none;
+   user-select: none;
+   border-radius: 7px;
 }
+
+html, body
+{
+    height: 100%;
+}
+
 </style>
+
+</head>
+<body oncontextmenu="return false">
+<div id="scene">
+</div>
+<div id="chat">
+<div id="history"></div>
+<input id="textbox1" type="text" name="fname"/>
+</div>
+</body>
 <script language="javascript" type="text/javascript">
 
  var ref = window.location.href.substr(7);
   var wsUri = "ws://"+ref.substr(0, ref.indexOf('/'))+"/ws";
   var output;
-  var moves = [];
   var myId = 0;
-  var canMove = true;
   var nick = "@name";
+  
+  var actors = [];
+  
+  function Actor(id, x, y, chara) {
+		this.id = id;
+		this.x = x;
+		this.y = y;
+		this.chara = chara;
+		this.frame = 0;
+		this.w0 = this.h0 = 0;
+		this.w1 = 32;
+		this.h1 = 48;  
+		this.move = null;
+		this.out = false;
+		this.dir = 0;
+		this.chatbox = null;
+		this.chatduration = 0;
+		
+		this.elem = document.createElement("div");
+		this.elem.id = id;
+		this.elem.className = "square";
+		document.getElementById("scene").appendChild(this.elem);
+		this.show();
+  }
+  Actor.prototype.moveto = function(x, y) {
+	  this.move = {x: x, y: y};
+	  this.frame = 0;
+  };
+  Actor.prototype.update = function() {
+	  if (this.move !== null) {
+		   if (this.y > this.move.y) {
+             this.dir = 3; 
+			 this.y --; 
+		  } else if (this.y < this.move.y) {
+		     this.dir = 0; 
+			 this.y ++;
+		  }	
+		  if (this.x < this.move.x) {
+		     this.dir = 1;
+			 this.x ++; 
+		  } else if (this.x > this.move.x) {
+             this.dir = 2;
+			 this.x --; 
+		  }
+         
+		  if (this.x != this.move.x || this.y != this.move.y) {		     
+			 this.w0 = Math.floor(this.frame/10)%4*32; 
+          } else {
+			 this.move = null;
+			 this.w0 = 0;
+		  }
+		  this.h0 = this.dir*48;
+		  this.frame ++;
+		  this.show();
+	  }	  
+	  if (this.chatduration > 0) {
+		  this.chatduration--;
+		  if (this.chatduration == 0) {
+			  this.chatbox.style.display = "none";
+			  this.chatbox.innerHTML = "";
+			  this.text = null;
+		  }
+	  }
+  };
+  Actor.prototype.show = function() {
+	  this.elem.style.left = this.x+"px";
+	  this.elem.style.top = this.y+"px";
+	  this.elem.style.backgroundPosition = "-"+this.w0+"px -"+this.h0+"px";
+	  this.elem.style.zIndex = this.y;
+	  if (this.chatduration > 0) {
+		  this.chatbox.style.left = this.x+this.w1/2-this.chatbox.offsetWidth/2 + "px";
+		  this.chatbox.style.top = this.y - 24 + "px";
+		  this.chatbox.style.zIndex = this.y;
+	  }
+  };
+  Actor.prototype.speak = function(text) {
+	  this.chatduration = 500;
+	if (this.chatbox === null) {
+		this.chatbox = document.createElement("div");
+		this.chatbox.id = this.id+"chat";
+		this.chatbox.className = "chatbox";		
+		document.getElementById("scene").appendChild(this.chatbox);
+	} else {
+		this.chatbox.style.display = "initial";	
+	}
+	this.chatbox.innerHTML = text;	
+	this.show();
+  };
+  Actor.prototype.drop = function() {
+	  document.getElementById("scene").removeChild(this.elem);
+	  if (this.chatbox !== null)
+	  	document.getElementById("scene").removeChild(this.chatbox);
+		console.log("drop");
+  };
+  
 
   function init()
   {
@@ -76,107 +202,64 @@ body {
   function handle(action, id, params) {
 	  switch(action) {
 		case "move":
-		moves.push({id: id, x: params.x, y: params.y, frame: 0});
+		for(i = 0; i < actors.length; i++)
+			if (actors[i].id == id) {
+				actors[i].moveto(params.x, params.y);
+				break;	
+			}		  
 		break;
 		case "connected":
-		para = document.createElement("div");
-		para.id = params.id;
-		para.className = "square";
-		para.style.left = params.x+"px";
-		para.style.top = params.y+"px";
-		document.getElementById("scene").appendChild(para);
+		actors.push(new Actor(params.id, params.x, params.y));	
 		break;
 		case "initialize":
 		con = params.connections;
 		for (i = 0; i < con.length; i++) {
-			para = document.createElement("div")
-			para.id = con[i].id;
-			para.className = "square";
-			para.style.left = con[i].x+"px";
-			para.style.top = con[i].y+"px";
-			document.getElementById("scene").appendChild(para);
+			actors.push(new Actor(con[i].id, con[i].x, con[i].y));			
 		}
 		break;
 		case "disconnected":
-            document.getElementById("scene").removeChild(document.getElementById(params.id));
+			for (i = 0; i < actors.length; i++)
+				if (actors[i].id == params.id){
+					actors[i].out = true;
+					break;	
+				}
 		break;
 		case "hi":
             myId = id;
             break;
         case "say":
-            para = document.createElement("div");
-            para.id = id+"chat";
-            para.className = "chatbox";
-            para.style.left = document.getElementById(id).style.left;
-            para.style.top = (parseInt(document.getElementById(id).style.top)-20)+"px";
-            document.getElementById("scene").appendChild(para);
-            para.innerHTML = params.msg;
-            interval = setInterval(function(){
-                document.getElementById(id+"chat").style.left = document.getElementById(id).style.left;
-                document.getElementById(id+"chat").style.top = (parseInt(document.getElementById(id).style.top)-20)+"px";
-            }, 10);
-            setTimeout(function(){
-                clearInterval(interval);
-                document.getElementById("scene").removeChild(document.getElementById(id+"chat"));
-            },5000);
+		    for (i = 0; i < actors.length; i++)
+				if (actors[i].id == id) {
+					actors[i].speak(params.msg);
+					break;	
+				}
+				
+				helem = document.getElementById("history");
+				helem.innerHTML = helem.innerHTML+"<div>"+params.msg+"</div>";				
+				helem.scrollTop = helem.scrollHeight;
 	  }
   };
 
-  window.onclick=function(event){
-      if (canMove) {
+  document.getElementById("scene").onmousedown=function(event){
         command("move", {"x": event.clientX-16, "y": event.clientY-45});
-        canMove = false;
-      }
   };
   
   function updatePosition() {
-	  nextArr = [];
 	  document.getElementById("textbox1").focus();
-	  for (i = 0; i < moves.length; i++) {
-		  node = document.getElementById(moves[i].id);
-		  currX = parseInt(node.style.left);
-		  currY = parseInt(node.style.top);
-		  console.log(moves[i].frame);
-		  var dir = 0;
-		  if (currX < moves[i].x)
-		     dir = 1;
-          else if (currX > moves[i].x)
-             dir = 2;
-          else if (currY > moves[i].y)
-             dir = 3;
-             //background-position: -100px 0;
-          node.style.backgroundPosition = "-"+(Math.floor(moves[i].frame/10)%4*32)+"px -"+(dir*48)+"px";
-
-		  if (currX < moves[i].x)
-		     currX ++;
-		  else if (currX > moves[i].x)
-		     currX --;
-		  if (currY < moves[i].y)
-		     currY ++;
-		  else if (currY > moves[i].y)
-		     currY --;
-		  node.style.left = currX+"px";
-		  node.style.top = currY+"px";
-		  if (currX != moves[i].x || currY != moves[i].y) {
-		     moves[i].frame++;
-		     nextArr.push(moves[i]);
-          }
-          else if (moves[i].id == myId) {
-             canMove = true;
-             node.style.backgroundPosition = "0px -"+(dir*48)+"px";
-          }
+	  nextActors = [];
+	  for (i = 0; i < actors.length; i++) {
+		  if (actors[i].out == true) {
+			actors[i].drop();
+		  } else {			  
+		  	actors[i].update();
+			nextActors.push(actors[i]);
+		  }
 	  }
-	  moves = nextArr;
+	  actors = nextActors;
   }
 
   window.addEventListener("load", init, false);
 
 
-
 </script>
-</head>
-<body>
-<div id="scene">
-</div>
-<input id="textbox1" type="text" name="fname"/>
-</body>
+</html>
