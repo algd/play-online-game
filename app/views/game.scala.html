@@ -26,7 +26,7 @@
 	height: 100%;
 }
 .square {
-	background: url('/assets/images/char.png');
+	background: url('/assets/images/char1.png');
 	width:32px;
 	height:48px;
 	position:absolute;
@@ -105,10 +105,10 @@ html, body
 			 this.y ++;
 		  }	
 		  if (this.x < this.move.x) {
-		     this.dir = 1;
+		     this.dir = 2;
 			 this.x ++; 
 		  } else if (this.x > this.move.x) {
-             this.dir = 2;
+             this.dir = 1;
 			 this.x --; 
 		  }
          
