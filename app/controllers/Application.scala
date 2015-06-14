@@ -18,8 +18,8 @@ object Application extends Controller {
 
   val registry = Akka.system().actorOf(Props[RegistryActor], "registry-actor")
 
-  def socket = WebSocket.acceptWithActor[String, String] { request => out =>
-    PlayerActor.props(out, registry)
+  def socket(nick: String) = WebSocket.acceptWithActor[String, String] { request => out =>
+    PlayerActor.props(out, registry, nick)
   }
 
   def spawn = Action {

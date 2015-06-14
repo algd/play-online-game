@@ -44,7 +44,7 @@ class RegistryActor extends Actor {
 }
 
 object PlayerActor {
-  def props(out: ActorRef, registry: ActorRef) = Props(new PlayerActor(out, registry))
+  def props(out: ActorRef, registry: ActorRef, nick: String) = Props(new PlayerActor(out, registry, nick))
 }
 
 case class PlayerStatus(actor: ActorRef, x: Int = 0, y: Int = 0)
@@ -95,7 +95,7 @@ class NPCActor(registry: ActorRef) extends Actor {
   }
 }
 
-class PlayerActor(out: ActorRef, registry: ActorRef) extends Actor {
+class PlayerActor(out: ActorRef, registry: ActorRef, nick: String) extends Actor {
   import RegistryActor._
 
   val id = scala.util.Random.nextInt(1000)

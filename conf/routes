@@ -5,7 +5,7 @@
 # Home page
 GET     /                           controllers.Application.index
 GET     /start                      controllers.Application.start(nick: String)
-GET     /ws                         controllers.Application.socket
+GET     /ws                         controllers.Application.socket(nick: String)
 GET     /spawn                      controllers.Application.spawn
 
 # Map static resources from the /public folder to the /assets URL path
